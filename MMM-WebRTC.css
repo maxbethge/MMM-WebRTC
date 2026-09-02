@@ -19,14 +19,18 @@
   border-bottom-width: 1px;
 }
 
+.module.MMM-WebRTC.mmm-webrtc-no-header > header,
 .module.MMM-WebRTC.mmm-webrtc-no-header header.module-header,
+.module.MMM-WebRTC header.module-header[hidden],
 .module.MMM-WebRTC header.module-header:empty {
   display: none !important;
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
   height: 0 !important;
-  overflow: hidden;
+  line-height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
 }
 
 .mmm-webrtc {

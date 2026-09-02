@@ -59,6 +59,20 @@ Module.register("MMM-WebRTC", {
               };
             }
           };
+    this.header =
+      typeof MMMWebRTCHeader !== "undefined"
+        ? MMMWebRTCHeader
+        : {
+            isHeaderEnabled(config, data) {
+              return !(config && config.showHeader === false) && !(data && data.showHeader === false);
+            },
+            headerText(config, data) {
+              if (config && config.showHeader === false) {
+                return "";
+              }
+              return (data && data.header) || (config && config.header) || "";
+            }
+          };
 
     this.pc = null;
     this.ws = null;
@@ -76,9 +90,7 @@ Module.register("MMM-WebRTC", {
     this.offerId = 0;
     this.generation = 0;
 
-    if (this.config.showHeader === false && this.data) {
-      this.data.header = undefined;
-    }
+    this.hideConfiguredHeader();
 
     const box = this.size.moduleBox(this.config);
     this.logger.log(
@@ -115,7 +127,8 @@ Module.register("MMM-WebRTC", {
       this.file("lib/logger.js"),
       this.file("lib/stream-url.js"),
       this.file("lib/sdp.js"),
-      this.file("lib/size.js")
+      this.file("lib/size.js"),
+      this.file("lib/header.js")
     ];
   },
 
@@ -124,10 +137,12 @@ Module.register("MMM-WebRTC", {
   },
 
   getHeader() {
-    if (this.config.showHeader === false) {
-      return "";
+    this.hideConfiguredHeader();
+    if (!this.header || typeof this.header.headerText !== "function") {
+      return this.config && this.config.showHeader === false ? undefined : this.data && this.data.header;
     }
-    return this.data.header || this.config.header || "";
+    const text = this.header.headerText(this.config, this.data);
+    return text || undefined;
   },
 
   getDom() {
@@ -164,6 +179,7 @@ Module.register("MMM-WebRTC", {
       this.applyModuleSize();
     }
 
+    this.applyModuleChrome();
     this.renderState();
     if (!this._didConnect) {
       this._didConnect = true;
@@ -219,12 +235,56 @@ Module.register("MMM-WebRTC", {
   },
 
   applyModuleChrome() {
-    const moduleEl = document.getElementById(this.identifier);
+    this.hideConfiguredHeader();
+    const moduleEl = this.moduleElement();
     if (!moduleEl) {
       return;
     }
-    moduleEl.classList.toggle("mmm-webrtc-no-header", !this.getHeader());
+    const show = this.header && this.header.isHeaderEnabled
+      ? this.header.isHeaderEnabled(this.config, this.data)
+      : this.config.showHeader !== false;
+    moduleEl.classList.toggle("mmm-webrtc-no-header", !show);
+    const headerEl = moduleEl.querySelector(".module-header, header");
+    if (headerEl) {
+      if (show) {
+        headerEl.hidden = false;
+        headerEl.removeAttribute("hidden");
+        headerEl.style.removeProperty("display");
+      } else {
+        headerEl.hidden = true;
+        headerEl.setAttribute("hidden", "hidden");
+        headerEl.innerHTML = "";
+        headerEl.style.setProperty("display", "none", "important");
+      }
+    }
     this.applyModuleSize();
+  },
+
+  hideConfiguredHeader() {
+    if (!this.header || typeof this.header.isHeaderEnabled !== "function") {
+      return;
+    }
+    if (this.header.isHeaderEnabled(this.config, this.data)) {
+      return;
+    }
+    if (this.data && this.data.header) {
+      this._savedHeader = this.data.header;
+      this.data.header = undefined;
+      this.logger.log("header hidden because showHeader is false");
+    }
+  },
+
+  moduleElement() {
+    if (this.identifier) {
+      const byId = document.getElementById(this.identifier);
+      if (byId) {
+        return byId;
+      }
+    }
+    if (this.wrapper && this.wrapper.closest) {
+      return this.wrapper.closest(".module");
+    }
+    return null;
   },
 
   applyModuleSize() {
