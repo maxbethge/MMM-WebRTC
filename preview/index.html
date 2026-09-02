@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MMM-WebRTC preview</title>
+    <link rel="stylesheet" href="../MMM-WebRTC.css" />
+    <style>
+      :root {
+        --color-text: #999;
+        --color-text-dimmed: #666;
+        --color-text-bright: #fff;
+        --color-background: #000;
+        --font-size: 20px;
+        --font-size-xsmall: 0.75rem;
+        --gap-modules: 30px;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--color-background);
+        color: var(--color-text);
+        font-family: "Roboto Condensed", "Segoe UI", sans-serif;
+      }
+
+      body {
+        padding: 24px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        color: var(--color-text-bright);
+        font-size: 1.1rem;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .hint {
+        margin: 0 0 18px;
+        color: var(--color-text-dimmed);
+        font-size: 0.85rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+        align-items: center;
+      }
+
+      button {
+        background: #1c1c1c;
+        color: var(--color-text-bright);
+        border: 1px solid #333;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+
+      button[aria-pressed="true"] {
+        border-color: #888;
+      }
+
+      .mirror {
+        display: inline-block;
+        background: #050505;
+        outline: 1px dashed #222;
+      }
+
+      header.module-header {
+        text-transform: uppercase;
+        font-size: var(--font-size-xsmall);
+        border-bottom: 1px solid var(--color-text-dimmed);
+        line-height: 15px;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+        color: var(--color-text);
+      }
+
+      .probe {
+        margin-top: 16px;
+        font-size: 0.8rem;
+        color: var(--color-text-dimmed);
+      }
+
+      .probe span {
+        color: var(--color-text-bright);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MMM-WebRTC preview</h1>
+    <p class="hint">Simulated MagicMirror chrome. Toggle the header and switch module sizes to check the stream viewport.</p>
+    <div class="controls">
+      <button id="toggle-header" type="button" aria-pressed="true">Header on</button>
+      <button id="restart" type="button">Restart stream</button>
+      <button class="size" type="button" data-width="320" data-height="180">320×180</button>
+      <button class="size" type="button" data-width="480" data-height="270" aria-pressed="true">480×270</button>
+      <button class="size" type="button" data-width="640" data-height="360">640×360</button>
+      <button class="size" type="button" data-width="100%" data-height="auto">100% × auto</button>
+    </div>
+    <div class="mirror">
+      <div class="module MMM-WebRTC" id="module">
+        <header class="module-header" id="header">Front Door</header>
+        <div class="module-content">
+          <div class="mmm-webrtc has-video" id="wrap">
+            <video class="mmm-webrtc-video" id="video" autoplay muted playsinline></video>
+            <div class="mmm-webrtc-status" id="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="probe">
+      Module: <span id="module-box">—</span>
+      · Viewport: <span id="view-box">—</span>
+      · Header: <span id="header-gap">—</span>
+    </p>
+    <script src="../lib/size.js"></script>
+    <script>
+      const moduleEl = document.getElementById("module");
+      const header = document.getElementById("header");
+      const wrap = document.getElementById("wrap");
+      const video = document.getElementById("video");
+      const status = document.getElementById("status");
+      const toggle = document.getElementById("toggle-header");
+      const restart = document.getElementById("restart");
+      const sizeButtons = Array.from(document.querySelectorAll("button.size"));
+
+      let stream = null;
+      let timer = null;
+      let frame = 0;
+      let config = { width: 480, height: 270, objectFit: "contain" };
+
+      function applySize() {
+        const box = MMMWebRTCSize.moduleBox(config);
+        moduleEl.style.width = box.width;
+        moduleEl.style.maxWidth = box.width;
+        moduleEl.classList.toggle("mmm-webrtc-sized", box.width !== "100%" || box.fixedHeight);
+        wrap.style.width = "100%";
+        wrap.style.height = box.fixedHeight ? box.height : "";
+        wrap.classList.toggle("mmm-webrtc-fixed", box.fixedHeight);
+        video.style.width = "100%";
+        video.style.height = box.fixedHeight ? "100%" : "auto";
+        video.style.maxWidth = "100%";
+        video.style.maxHeight = box.fixedHeight ? "100%" : "";
+        video.style.objectFit = box.objectFit;
+      }
+
+      function drawFrame(ctx, canvas) {
+        frame += 1;
+        ctx.fillStyle = "#101820";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#1e90ff";
+        const x = 80 + Math.sin(frame / 20) * 40;
+        ctx.fillRect(x, 90, 180, 100);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "28px sans-serif";
+        ctx.fillText("Frigate WebRTC", 40, 40);
+        ctx.font = "18px sans-serif";
+        ctx.fillText("front_door  " + new Date().toLocaleTimeString(), 40, 70);
+      }
+
+      function startStream() {
+        stopStream();
+        const canvas = document.createElement("canvas");
+        canvas.width = 640;
+        canvas.height = 360;
+        const ctx = canvas.getContext("2d");
+        drawFrame(ctx, canvas);
+        timer = setInterval(() => drawFrame(ctx, canvas), 66);
+        stream = canvas.captureStream(15);
+        video.srcObject = stream;
+        wrap.classList.add("has-video");
+        wrap.classList.remove("has-error");
+        status.textContent = "";
+        video.play().catch(() => {});
+      }
+
+      function stopStream() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+          stream = null;
+        }
+        video.srcObject = null;
+      }
+
+      function measure() {
+        const moduleRect = moduleEl.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        const headerStyle = getComputedStyle(header);
+        const headerVisible = headerStyle.display !== "none";
+        document.getElementById("module-box").textContent =
+          Math.round(moduleRect.width) + "×" + Math.round(moduleRect.height);
+        document.getElementById("view-box").textContent =
+          Math.round(wrapRect.width) + "×" + Math.round(wrapRect.height);
+        document.getElementById("header-gap").textContent = headerVisible ? "on" : "hidden";
+      }
+
+      toggle.addEventListener("click", () => {
+        const show = toggle.getAttribute("aria-pressed") !== "true";
+        toggle.setAttribute("aria-pressed", String(show));
+        toggle.textContent = show ? "Header on" : "Header off";
+        moduleEl.classList.toggle("mmm-webrtc-no-header", !show);
+        header.textContent = show ? "Front Door" : "";
+        requestAnimationFrame(measure);
+      });
+
+      restart.addEventListener("click", () => {
+        wrap.classList.remove("has-video");
+        status.textContent = "Connecting…";
+        stopStream();
+        setTimeout(startStream, 250);
+      });
+
+      sizeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          sizeButtons.forEach((other) => other.setAttribute("aria-pressed", "false"));
+          button.setAttribute("aria-pressed", "true");
+          const width = button.getAttribute("data-width");
+          const height = button.getAttribute("data-height");
+          config.width = /^\d+$/.test(width) ? Number(width) : width;
+          config.height = /^\d+$/.test(height) ? Number(height) : height;
+          applySize();
+          requestAnimationFrame(measure);
+        });
+      });
+
+      applySize();
+      startStream();
+      requestAnimationFrame(measure);
+    </script>
+  </body>
+</html>

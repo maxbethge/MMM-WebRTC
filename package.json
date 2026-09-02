@@ -1,0 +1,22 @@
+{
+  "name": "mmm-webrtc",
+  "version": "1.0.0",
+  "description": "MagicMirror² module that displays a Frigate NVR WebRTC camera stream with an optional header and periodic restart.",
+  "main": "MMM-WebRTC.js",
+  "keywords": [
+    "magicmirror",
+    "frigate",
+    "webrtc",
+    "go2rtc",
+    "nvr",
+    "camera"
+  ],
+  "author": "MMM-WebRTC",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test lib/*.test.js"
+  }
+}
