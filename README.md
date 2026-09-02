@@ -43,7 +43,7 @@ Map `1984` and `8555` on the Frigate container. If go2rtc rejects the MagicMirro
 
 ```bash
 cd ~/MagicMirror/modules
-git clone <this-repo-url> MMM-WebRTC
+git clone https://github.com/maxbethge/MMM-WebRTC
 ```
 
 There are no npm dependencies. Add a module block to `config/config.js` and restart MagicMirror.
